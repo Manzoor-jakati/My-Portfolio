@@ -95,15 +95,78 @@
 
 <!--     bro this is Added -->
     <!-- Navigation Bar -->
-<nav class="flex items-center justify-between px-6 py-3 bg-neutral-900 text-white sticky top-0 z-50">
-    <div class="text-lg font-bold">Dinidu.</div>
-    <div class="hidden md:flex space-x-6">
-        <a href="#cases" class="hover:text-teal-400">Cases</a>
-        <a href="#about" class="hover:text-teal-400">About</a>
-        <a href="resume.pdf" target="_blank" class="hover:text-teal-400 flex items-center gap-1">Resume <span>↗</span></a>
-    </div>
-    <a href="#contact" class="bg-blue-500 hover:bg-blue-600 text-white font-medium px-4 py-2 rounded-full">Contact</a>
+<!-- Navigation Bar -->
+<!-- Navigation Bar -->
+<style>
+  .nav-container {
+    position: relative;
+  }
+  .highlight {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    border-radius: 9999px;
+    transition: all 0.3s ease;
+    z-index: -1;
+  }
+</style>
+
+<nav class="fixed top-5 left-1/2 -translate-x-1/2 z-50">
+  <div class="flex items-center gap-6 px-6 py-2 bg-neutral-900 text-white rounded-full shadow-lg border border-neutral-700 nav-container">
+    
+    <!-- Highlight Element -->
+    <div id="highlight" class="highlight w-20"></div>
+
+    <span class="font-bold relative z-10">Manzoor</span>
+    <a href="#about" data-color="#064e3b" class="hover:text-blue-400 transition relative z-10">About</a>
+    <a href="#projects" data-color="#f5f5dc" class="hover:text-blue-400 transition relative z-10">Projects</a>
+    <a href="#certificates" data-color="#87cefa" class="hover:text-blue-400 transition relative z-10">Certificates</a>
+    <a href="#gallery" data-color="#800080" class="hover:text-blue-400 transition relative z-10">Gallery</a>
+    <a href="#contact" data-color="#ffd700" class="hover:text-blue-400 transition relative z-10">Contact</a>
+  </div>
 </nav>
+
+<!-- Smooth Scroll + Highlight Animation -->
+<script>
+  const highlight = document.getElementById("highlight");
+  const links = document.querySelectorAll("nav a");
+  const nav = document.querySelector(".nav-container");
+
+  function moveHighlight(el) {
+    const linkRect = el.getBoundingClientRect();
+    const navRect = nav.getBoundingClientRect();
+    highlight.style.width = `${linkRect.width}px`;
+    highlight.style.left = `${linkRect.left - navRect.left}px`;
+    highlight.style.backgroundColor = el.dataset.color;
+  }
+
+  links.forEach(link => {
+    link.addEventListener("click", function(e) {
+      e.preventDefault();
+      document.querySelector(this.getAttribute("href")).scrollIntoView({ behavior: "smooth" });
+      moveHighlight(this);
+    });
+  });
+
+  // Set initial highlight to "About"
+  window.addEventListener("load", () => {
+    moveHighlight(document.querySelector('a[href="#about"]'));
+  });
+</script>
+
+
+<!-- Smooth Scroll Script -->
+<script>
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+      e.preventDefault();
+      document.querySelector(this.getAttribute('href')).scrollIntoView({
+        behavior: 'smooth'
+      });
+    });
+  });
+</script>
+
 
     
     <!-- Live Background Canvas -->
@@ -119,24 +182,41 @@
             </div>
         </section>
 
-        <!-- About Me Section -->
-        <section id="about" class="content-section">
-            <div class="section-card">
-                <h2 class="text-4xl font-bold mb-8 text-center tracking-tight">About Me</h2>
-                <div class="flex flex-col md:flex-row items-center gap-8 md:gap-12">
-                    <div class="flex-shrink-0">
-                        <img class="profile-img" src="https://placehold.co/200x200/1a1a1a/ffffff?text=MANZOOR" alt="Your Profile Picture">
-                    </div>
-                    <div class="text-center md:text-left">
-                        <p class="text-lg text-neutral-300 leading-relaxed">
-                            Hello! I'm Manzoor. An aspiring Computer Science & Eng. student passionate about building intelligent systems that learn, adapt, and solve real-world problems. My background in collaborative leadership and clear communication fuels my approach to developing impactful, data-driven solutions.
-                            <br><br>
-                            I thrive on complex challenges and am constantly seeking to deploy my skills on innovative projects.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </section>
+<!-- About Me Section -->
+<section id="about" class="content-section">
+  <div class="section-card">
+    <h2 class="text-4xl font-bold mb-8 text-center tracking-tight">About Me</h2>
+    <div class="flex flex-col md:flex-row items-center gap-8 md:gap-12">
+      <div class="relative flex-shrink-0">
+        <!-- Rotating Ring -->
+        <div class="absolute inset-0 rounded-full border-[6px] border-transparent border-t-cyan-400 border-r-purple-500 animate-spin-slow"></div>
+        
+        <!-- Profile Image -->
+        <img class="profile-img relative z-10 rounded-full" src="https://placehold.co/200x200/1a1a1a/ffffff?text=MANZOOR" alt="Your Profile Picture">
+      </div>
+
+      <div class="text-center md:text-left">
+        <p class="text-lg text-neutral-300 leading-relaxed">
+          Hello! I'm Manzoor. An aspiring Computer Science & Eng. student passionate about building intelligent systems that learn, adapt, and solve real-world problems. My background in collaborative leadership and clear communication fuels my approach to developing impactful, data-driven solutions.
+          <br><br>
+          I thrive on complex challenges and am constantly seeking to deploy my skills on innovative projects.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+/* Slow spin animation */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin-slow 6s linear infinite;
+}
+</style>
+
 
         <!-- Core Competencies Section -->
         <section id="competencies" class="content-section">
@@ -291,20 +371,62 @@
         </section>
 
         <!-- Gallery Section -->
-        <section id="gallery" class="content-section">
-            <div class="section-card">
-                <h2 class="text-4xl font-bold mb-8 text-center tracking-tight">Gallery</h2>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <a href="gallery1.html" target="_blank">
-                    <img src="https://placehold.co/500x500/1a1a1a/ffffff?text=HTML+LEARNINGS" alt="Gallery Image 1" class="gallery-img rounded-lg w-full h-full object-cover" ></a>
-                    <img src="https://placehold.co/500x700/1a1a1a/ffffff?text=Python+learning" alt="Gallery Image 2" class="gallery-img rounded-lg w-full h-full object-cover col-span-1 md:col-span-1 row-span-2">
-                    <img src="https://placehold.co/500x500/1a1a1a/ffffff?text=Image+3" alt="Gallery Image 3" class="gallery-img rounded-lg w-full h-full object-cover">
-                    <img src="https://placehold.co/500x500/1a1a1a/ffffff?text=Image+4" alt="Gallery Image 4" class="gallery-img rounded-lg w-full h-full object-cover">
-                    <img src="https://placehold.co/500x500/1a1a1a/ffffff?text=Image+5" alt="Gallery Image 5" class="gallery-img rounded-lg w-full h-full object-cover col-span-2 md:col-span-2">
-                    <img src="https://placehold.co/500x500/1a1a1a/ffffff?text=Image+6" alt="Gallery Image 6" class="gallery-img rounded-lg w-full h-full object-cover">
-                </div>
-            </div>
-        </section>
+<section id="gallery" class="content-section">
+  <div class="section-card">
+    <h2 class="text-4xl font-bold mb-8 text-center tracking-tight">Gallery</h2>
+    
+    <div id="gallery-grid" class="flex flex-wrap gap-4 transition-all duration-500">
+      <!-- Card -->
+      <div class="gallery-card flex-1 min-w-[250px] max-w-[calc(33%-1rem)] transition-all duration-500 cursor-pointer">
+        <img src="https://placehold.co/600x800" class="rounded-xl w-full h-full object-cover">
+      </div>
+      <div class="gallery-card flex-1 min-w-[250px] max-w-[calc(33%-1rem)] transition-all duration-500 cursor-pointer">
+        <img src="https://placehold.co/600x800" class="rounded-xl w-full h-full object-cover">
+      </div>
+      <div class="gallery-card flex-1 min-w-[250px] max-w-[calc(33%-1rem)] transition-all duration-500 cursor-pointer">
+        <img src="https://placehold.co/600x800" class="rounded-xl w-full h-full object-cover">
+      </div>
+      <div class="gallery-card flex-1 min-w-[250px] max-w-[calc(33%-1rem)] transition-all duration-500 cursor-pointer">
+        <img src="https://placehold.co/600x800" class="rounded-xl w-full h-full object-cover">
+      </div>
+      <div class="gallery-card flex-1 min-w-[250px] max-w-[calc(33%-1rem)] transition-all duration-500 cursor-pointer">
+        <img src="https://placehold.co/600x800" class="rounded-xl w-full h-full object-cover">
+      </div>
+      <div class="gallery-card flex-1 min-w-[250px] max-w-[calc(33%-1rem)] transition-all duration-500 cursor-pointer">
+        <img src="https://placehold.co/600x800" class="rounded-xl w-full h-full object-cover">
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+const cards = document.querySelectorAll('.gallery-card');
+
+cards.forEach(card => {
+  card.addEventListener('mouseenter', () => {
+    cards.forEach(c => c.classList.add('shrink'));
+    card.classList.remove('shrink');
+    card.classList.add('grow');
+  });
+  
+  card.addEventListener('mouseleave', () => {
+    cards.forEach(c => c.classList.remove('shrink', 'grow'));
+  });
+});
+</script>
+
+<style>
+.gallery-card {
+  flex: 1 1 30%;
+}
+.gallery-card.grow {
+  flex: 1 1 45%;
+}
+.gallery-card.shrink {
+  flex: 1 1 20%;
+  opacity: 0.7;
+}
+</style>
 
         <!-- Ideas Section -->
         <section id="ideas" class="content-section">
