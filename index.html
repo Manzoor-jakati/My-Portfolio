@@ -18,7 +18,42 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
+
+  /* === Loading Screen === */
+  #loading {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #0b0f17;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    color: #00ff88;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 20px;
+  }
+
+  .text {
+    border-right: 3px solid #00ff88;
+    white-space: nowrap;
+    overflow: hidden;
+    animation: typing 3s steps(20, end), blink 0.7s step-end infinite;
+  }
+
+  @keyframes typing {
+    from { width: 0; }
+    to { width: 100%; }
+  }
+
+  @keyframes blink {
+    from, to { border-color: transparent; }
+    50% { border-color: #00ff88; }
+  }
+
+  /* LOADING SCREEN HAI  */
         body {
             font-family: 'Inter', sans-serif;
             background-color: #0a0a0a;
@@ -93,9 +128,11 @@
 </head>
 <body class="antialiased">
 
-<!--     bro this is Added -->
-    <!-- Navigation Bar -->
-<!-- Navigation Bar -->
+<!-- Loading Screen -->
+<div id="loading">
+  <div class="text">&lt;CS_PROGRAMMER/&gt;</div>
+</div>
+
 <!-- Navigation Bar -->
 <style>
   .nav-container {
@@ -171,6 +208,9 @@
     
     <!-- Live Background Canvas -->
     <canvas id="bg-canvas"></canvas>
+
+<!-- this is added jlkasjdlkasjlak -->
+<div id="main" style="display:none;"></div>
 
     <!-- Main Content -->
     <main>
@@ -467,7 +507,18 @@ cards.forEach(card => {
             </div>
         </section>
     </main>
-    
+</div>
+
+<!-- Loading screen hai  -->
+<script>
+  // Hide loading screen after 2 seconds
+  setTimeout(() => {
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("main").style.display = "block";
+  }, 1500);
+</script>
+ <!-- ^^^^^ -->
+
 <script>
 
     let scene, camera, renderer, mesh;
