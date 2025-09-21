@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ShopFlow — Inventory + Billing + Loyalty (Fixed)</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body { font-family: 'Inter', sans-serif; background:#f3f4f6; color:#111827; }
+    .tab-content { display:none; }
+    .tab-content.active { display:block; }
+    .card-shadow { box-shadow: 0 6px 18px rgba(15,23,42,0.08); }
+    .product-card { height: 210px; display:flex; flex-direction:column; justify-content:space-between; padding:12px; border-radius:12px; }
+    .product-img { height:108px; width:100%; object-fit:cover; border-radius:8px; }
+    .product-meta { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .product-price, .product-qty { font-weight:700; font-size:1.05rem; }
+    .hover-desc { transition:all .18s ease; opacity:0; transform:translateY(6px); font-size:0.92rem; color:#4b5563; }
+    .product-card:hover .hover-desc { opacity:1; transform:translateY(0); }
+    .small-muted { color:#6b7280; font-size:0.9rem; }
+    .round-rank { width:36px;height:36px;border-radius:9999px;display:grid;place-items:center;background:white; box-shadow:0 6px 12px rgba(0,0,0,0.06); font-weight:700; }
+    @media (max-width:768px) { .product-card { height: 230px; } }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="min-h-screen flex flex-col">
+    <header class="bg-blue-600 text-white p-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <i class="fas fa-store text-2xl"></i>
+        <div>
+          <div class="text-xl font-bold">ShopFlow <span class="text-sm font-normal opacity-80">(Fixed)</span></div>
+          <div class="text-xs opacity-80">Local demo — data persists (localStorage)</div>
+        </div>
+      </div>
+      <div class="text-sm opacity-80">Test / demo</div>
+    </header>
+
+    <nav class="bg-blue-700 text-white p-3 flex justify-around">
+      <button class="tab-button px-4 py-2 rounded-md font-semibold hover:bg-blue-800" onclick="showTab('inventory')">Inventory</button>
+      <button class="tab-button px-4 py-2 rounded-md font-semibold hover:bg-blue-800" onclick="showTab('billing')">Billing</button>
+      <button class="tab-button px-4 py-2 rounded-md font-semibold hover:bg-blue-800" onclick="showTab('suppliers')">Suppliers</button>
+      <button class="tab-button px-4 py-2 rounded-md font-semibold hover:bg-blue-800" onclick="showTab('sales')">Sales</button>
+    </nav>
+
+    <main class="p-6 flex-1 overflow-auto">
+      <!-- INVENTORY -->
+      <section id="inventory" class="tab-content active">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-2xl font-bold">Inventory</h2>
+          <div class="flex items-center gap-3">
+            <select id="filter-category" class="p-2 rounded-md border" onchange="renderProducts()">
+              <option value="">All Categories</option>
+              <option>Food</option>
+              <option>Brushes & Toothpaste</option>
+              <option>Electronics</option>
+            </select>
+            <button id="show-add-product-btn" class="bg-blue-500 text-white px-4 py-2 rounded-full font-semibold">
+              <i class="fas fa-plus mr-2"></i> Add Product
+            </button>
+          </div>
+        </div>
+
+        <div id="products-list" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+
+        <!-- Add Product Modal (empty container, we inject content when opening) -->
+        <div id="add-product-modal" class="hidden fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50"></div>
+      </section>
+
+      <!-- BILLING -->
+      <section id="billing" class="tab-content">
+        <h2 class="text-2xl font-bold mb-4">Billing</h2>
+
+        <form id="sell-product-form" class="bg-white p-4 rounded-xl card-shadow mb-4" onsubmit="return false;">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+            <div>
+              <label class="block text-sm font-medium mb-1">Product</label>
+              <select id="sell-product-id" class="w-full p-2 border rounded-md"></select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Quantity</label>
+              <input id="sell-quantity" type="number" min="1" value="1" class="w-full p-2 border rounded-md" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Customer Mobile (optional)</label>
+              <input id="customer-mobile" type="tel" pattern="[0-9]*" class="w-full p-2 border rounded-md" placeholder="e.g. 9876543210" />
+            </div>
+            <div class="flex gap-2">
+              <button type="button" onclick="addToBill()" class="bg-blue-500 text-white px-4 py-2 rounded-md">+ Add to Cart</button>
+              <button type="button" onclick="checkoutBill()" class="bg-green-600 text-white px-4 py-2 rounded-md">Checkout</button>
+              <button type="button" onclick="clearBill()" class="bg-gray-200 px-4 py-2 rounded-md">Clear</button>
+            </div>
+          </div>
+          <div class="mt-3 text-sm text-gray-600">Add multiple items to the cart. At checkout you'll be asked for mobile and a loyalty code will be generated (points awarded).</div>
+        </form>
+
+        <!-- Bill / Receipt -->
+        <div id="bill-receipt" class="bg-white p-5 rounded-xl card-shadow hidden">
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 class="text-2xl font-bold">ShopFlow</h3>
+              <div id="bill-date" class="text-xs text-gray-500"></div>
+            </div>
+            <div id="bill-status" class="text-sm font-semibold text-yellow-600">UNPAID</div>
+          </div>
+
+          <div id="bill-items" class="mt-4 space-y-2"></div>
+
+          <div class="border-t mt-4 pt-3 flex justify-between text-lg font-bold">
+            <div>Total (incl. GST)</div>
+            <div id="bill-total">₹0.00</div>
+          </div>
+
+          <div class="mt-3 text-sm text-gray-700">
+            Loyalty Code: <span id="loyalty-code" class="font-semibold">—</span><br/>
+            Earned Points This Bill: <span id="loyalty-points" class="font-semibold">0</span>
+          </div>
+
+          <div id="payment-section" class="mt-4 hidden">
+            <h4 class="font-semibold mb-2">Choose payment method</h4>
+            <div class="flex gap-4 items-start">
+              <div class="p-3 bg-white border rounded-md text-center">
+                <div class="mb-2 font-medium">UPI QR</div>
+                <div class="w-36 h-36 bg-gray-100 grid place-items-center text-sm">QR DEMO</div>
+                <button class="mt-2 bg-purple-600 text-white px-3 py-1 rounded-md" onclick="payWith('UPI')">Pay with UPI</button>
+              </div>
+              <div class="p-3 bg-white border rounded-md">
+                <div class="mb-2 font-medium">Card</div>
+                <div class="text-sm text-gray-500">Demo</div>
+                <button class="mt-2 bg-gray-800 text-white px-3 py-1 rounded-md" onclick="payWith('Card')">Pay with Card</button>
+              </div>
+
+              <div class="ml-auto">
+                <button id="new-bill-btn" class="bg-gray-200 px-3 py-2 rounded-md hidden" onclick="startNewBill()">New Bill</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SUPPLIERS -->
+      <section id="suppliers" class="tab-content">
+        <h2 class="text-2xl font-bold mb-4">Suppliers</h2>
+
+        <div class="bg-white p-4 rounded-xl card-shadow mb-4">
+          <form id="add-supplier-form" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-sm mb-1">Supplier Name</label>
+              <input id="supplier-name" class="p-2 border rounded-md" required />
+            </div>
+            <div>
+              <label class="block text-sm mb-1">Mobile</label>
+              <input id="supplier-mobile" class="p-2 border rounded-md" />
+            </div>
+            <div>
+              <label class="block text-sm mb-1">Category Supplied</label>
+              <select id="supplier-category" class="p-2 border rounded-md">
+                <option>Food</option>
+                <option>Brushes & Toothpaste</option>
+                <option>Electronics</option>
+              </select>
+            </div>
+            <div class="md:col-span-3 flex gap-3 mt-2">
+              <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md">Add Supplier</button>
+              <button type="button" onclick="clearSupplierForm()" class="bg-gray-200 px-4 py-2 rounded-md">Clear</button>
+            </div>
+          </form>
+        </div>
+
+        <div id="suppliers-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      </section>
+
+      <!-- SALES / TREND -->
+      <section id="sales" class="tab-content">
+        <h2 class="text-2xl font-bold mb-4">Sales & Trending</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="md:col-span-2">
+            <h3 class="text-lg font-semibold mb-2">Sales History</h3>
+            <div id="sales-list" class="space-y-3 max-h-[60vh] overflow-auto"></div>
+          </div>
+
+          <div>
+            <h3 class="text-lg font-semibold mb-2">Trending Products</h3>
+            <canvas id="trendingChart" class="w-full h-56 bg-white rounded-xl p-3 card-shadow"></canvas>
+            <div id="trending-list" class="mt-3 space-y-2"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+<script>
+/* -----------------------------
+  ShopFlow — Fixed and improved
+  - GST live calc on add-product
+  - Proper add product (with image)
+  - Cart supports multiple items
+  - Checkout: ask mobile, generate loyalty code, calculate points
+  - Persist data to localStorage
+-------------------------------*/
+
+const LS_PRODUCTS = 'sf_products_v2';
+const LS_SALES = 'sf_sales_v2';
+const LS_SUPPLIERS = 'sf_suppliers_v2';
+const LS_CUSTOMERS = 'sf_customers_v1'; // stores cumulative points per mobile
+
+let inventoryData = [];
+let salesData = [];
+let supplierData = [];
+let customers = {}; // { mobile: { points: n } }
+let billItems = []; // cart items: { productId, name, unitPrice, gst, unitIncl, quantity, total }
+
+/* ---------- utils ---------- */
+function generateId(prefix='id') {
+  return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
+}
+function money(n){ return '₹' + Number(n || 0).toFixed(2); }
+
+/* ---------- storage ---------- */
+function saveAll(){
+  localStorage.setItem(LS_PRODUCTS, JSON.stringify(inventoryData));
+  localStorage.setItem(LS_SALES, JSON.stringify(salesData));
+  localStorage.setItem(LS_SUPPLIERS, JSON.stringify(supplierData));
+  localStorage.setItem(LS_CUSTOMERS, JSON.stringify(customers));
+}
+function loadAll(){
+  inventoryData = JSON.parse(localStorage.getItem(LS_PRODUCTS) || '[]');
+  salesData = JSON.parse(localStorage.getItem(LS_SALES) || '[]');
+  supplierData = JSON.parse(localStorage.getItem(LS_SUPPLIERS) || '[]');
+  customers = JSON.parse(localStorage.getItem(LS_CUSTOMERS) || '{}');
+}
+
+/* ---------- UI Tabs ---------- */
+function showTab(id){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id === 'sales') updateTrendingChart();
+}
+
+/* ---------- Products rendering ---------- */
+function renderProducts(){
+  const container = document.getElementById('products-list');
+  container.innerHTML = '';
+  const filter = document.getElementById('filter-category').value;
+  const list = inventoryData.filter(p => !filter || p.category === filter);
+
+  if(list.length === 0){
+    container.innerHTML = `<div class="col-span-full text-center text-gray-500 p-6 bg-white rounded-xl card-shadow">No products yet.</div>`;
+    updateBillingUI();
+    return;
+  }
+
+  list.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'bg-white product-card card-shadow relative p-3';
+    const unitIncl = p.price * (1 + (p.gst||0)/100);
+    card.innerHTML = `
+      <div>
+        ${p.photo ? `<img src="${p.photo}" alt="${p.name}" class="product-img mb-2">` : `<div class="w-full h-28 bg-gray-100 rounded-lg grid place-items-center text-4xl mb-2">📦</div>`}
+        <div class="text-center font-semibold">${p.name}</div>
+        <div class="product-meta mt-1">
+          <div class="product-price text-indigo-600">${money(p.price)} <span class="text-xs text-gray-500">+${p.gst}% GST</span></div>
+          <div class="product-qty text-gray-800">${p.quantity} pcs</div>
+        </div>
+        <div class="hover-desc mt-2">${(p.description||'').substring(0,200)}</div>
+      </div>
+    `;
+    // actions
+    const actions = document.createElement('div');
+    actions.style.position = 'absolute';
+    actions.style.right = '10px';
+    actions.style.bottom = '10px';
+    actions.style.display = 'flex';
+    actions.style.gap = '8px';
+    // update stock
+    const upBtn = document.createElement('button');
+    upBtn.className = 'bg-yellow-400 text-white px-3 py-1 rounded-md text-sm';
+    upBtn.textContent = '+ Update Stock';
+    upBtn.onclick = ()=> openUpdateStock(p.id);
+    const delBtn = document.createElement('button');
+    delBtn.className = 'bg-red-500 text-white px-3 py-1 rounded-md text-sm';
+    delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+    delBtn.onclick = ()=> deleteProductById(p.id);
+    actions.appendChild(upBtn); actions.appendChild(delBtn);
+    card.appendChild(actions);
+    container.appendChild(card);
+  });
+
+  updateBillingUI();
+}
+
+/* ---------- Product operations ---------- */
+function deleteProductById(id){
+  if(!confirm('Delete product?')) return;
+  const idx = inventoryData.findIndex(p=>p.id===id);
+  if(idx !== -1) inventoryData.splice(idx,1);
+  saveAll(); renderProducts();
+}
+function openUpdateStock(productId){
+  const p = inventoryData.find(x=>x.id===productId);
+  if(!p) return alert('Product not found');
+  const add = prompt(`Add stock for "${p.name}" (current ${p.quantity}). Enter number to add:`);
+  if(add === null) return;
+  const n = parseInt(add);
+  if(isNaN(n) || n <= 0) return alert('Enter a valid positive number');
+  p.quantity += n;
+  saveAll(); renderProducts(); updateBillingUI();
+  alert(`Stock updated. New quantity: ${p.quantity}`);
+}
+
+/* ---------- Billing / Cart ---------- */
+function updateBillingUI(){
+  const sel = document.getElementById('sell-product-id');
+  sel.innerHTML = '<option value="">-- Select a product --</option>';
+  inventoryData.forEach(p=>{
+    if(p.quantity > 0){
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.name} — ${p.quantity} in stock — ${money(p.price*(1+(p.gst||0)/100))} (incl. GST)`;
+      sel.appendChild(opt);
+    }
+  });
+}
+
+function addToBill(){
+  const productId = document.getElementById('sell-product-id').value;
+  const qty = parseInt(document.getElementById('sell-quantity').value) || 0;
+  if(!productId) return alert('Select a product');
+  if(qty <= 0) return alert('Enter valid quantity');
+
+  const p = inventoryData.find(x=>x.id===productId);
+  if(!p) return alert('Product not found');
+  if(qty > p.quantity) return alert('Not enough stock');
+
+  // merge if existing
+  let it = billItems.find(b=>b.productId===productId);
+  const unitIncl = Number(p.price) * (1 + Number(p.gst||0)/100);
+  if(it){
+    // check stock total
+    if(it.quantity + qty > p.quantity) return alert('Not enough stock for combined quantity');
+    it.quantity += qty;
+    it.total = it.quantity * unitIncl;
+  } else {
+    it = {
+      productId,
+      name: p.name,
+      unitPrice: Number(p.price),
+      gst: Number(p.gst||0),
+      unitIncl: unitIncl,
+      quantity: qty,
+      total: qty * unitIncl
+    };
+    billItems.push(it);
+  }
+  renderBill();
+}
+
+function renderBill(){
+  const bill = document.getElementById('bill-receipt');
+  const itemsDiv = document.getElementById('bill-items');
+  itemsDiv.innerHTML = '';
+  if(billItems.length === 0){
+    bill.classList.add('hidden');
+    return;
+  }
+
+  let grand = 0;
+  billItems.forEach(it=>{
+    grand += it.total;
+    const row = document.createElement('div');
+    row.className = 'flex justify-between items-center';
+
+    const left = document.createElement('div');
+    left.innerHTML = `<div class="text-sm font-medium">${it.name}</div>
+                      <div class="text-xs text-gray-500">Unit incl. GST: ${money(it.unitIncl)} • GST ${it.gst}%</div>`;
+
+    const controls = document.createElement('div');
+    controls.className = 'flex items-center gap-3';
+
+    // minus
+    const minus = document.createElement('button');
+    minus.className = 'px-2 py-1 bg-gray-200 rounded text-sm';
+    minus.textContent = '-';
+    minus.onclick = ()=> updateBillQuantity(it.productId, -1);
+
+    // qty display
+    const qtySpan = document.createElement('div');
+    qtySpan.className = 'px-2';
+    qtySpan.textContent = it.quantity;
+
+    // plus
+    const plus = document.createElement('button');
+    plus.className = 'px-2 py-1 bg-gray-200 rounded text-sm';
+    plus.textContent = '+';
+    plus.onclick = ()=> updateBillQuantity(it.productId, +1);
+
+    // price
+    const priceDiv = document.createElement('div');
+    priceDiv.className = 'font-semibold ml-4';
+    priceDiv.textContent = money(it.total);
+
+    // remove
+    const remove = document.createElement('button');
+    remove.className = 'text-xs text-red-500 ml-2';
+    remove.textContent = 'Remove';
+    remove.onclick = ()=> removeBillItemById(it.productId);
+
+    controls.appendChild(minus);
+    controls.appendChild(qtySpan);
+    controls.appendChild(plus);
+    controls.appendChild(priceDiv);
+    controls.appendChild(remove);
+
+    row.appendChild(left);
+    row.appendChild(controls);
+    itemsDiv.appendChild(row);
+  });
+
+  document.getElementById('bill-total').textContent = money(grand);
+  document.getElementById('bill-date').textContent = new Date().toLocaleString();
+  document.getElementById('bill-status').textContent = 'UNPAID';
+  document.getElementById('bill-status').className = 'text-sm font-semibold text-yellow-600';
+  document.getElementById('payment-section').classList.add('hidden');
+  document.getElementById('new-bill-btn').classList.add('hidden');
+  document.getElementById('loyalty-code').textContent = '—';
+  document.getElementById('loyalty-points').textContent = '0';
+  bill.classList.remove('hidden');
+}
+
+function updateBillQuantity(productId, delta){
+  const item = billItems.find(i=>i.productId===productId);
+  if(!item) return;
+  const product = inventoryData.find(p=>p.id===productId);
+  if(!product) return;
+  const newQty = item.quantity + delta;
+  if(newQty <= 0){
+    // confirm remove
+    if(confirm('Remove this item from cart?')) removeBillItemById(productId);
+    return;
+  }
+  if(newQty > product.quantity) return alert('Not enough stock');
+  item.quantity = newQty;
+  item.total = item.unitIncl * item.quantity;
+  renderBill();
+}
+
+function removeBillItemById(productId){
+  const idx = billItems.findIndex(i=>i.productId===productId);
+  if(idx !== -1) billItems.splice(idx,1);
+  renderBill();
+}
+
+function clearBill(){
+  if(!confirm('Clear current cart?')) return;
+  billItems = [];
+  renderBill();
+}
+
+/* ---------- Checkout & Payment (loyalty) ---------- */
+const POINTS_PER_VALUE = 10; // 1 point per ₹10 spent (incl GST)
+
+function checkoutBill(){
+  if(billItems.length === 0) return alert('Cart is empty');
+  // ensure mobile present
+  let mobile = document.getElementById('customer-mobile').value.trim();
+  if(!mobile){
+    mobile = prompt('Enter customer mobile number (required for loyalty points):');
+    if(!mobile) return alert('Mobile required for checkout to award points');
+    document.getElementById('customer-mobile').value = mobile;
+  }
+  // generate loyalty code and calculate points for each item
+  const loyaltyCode = 'L' + generateId().toUpperCase().slice(-8);
+  let totalPoints = 0;
+  // compute points per item and total
+  const itemsWithPoints = billItems.map(it => {
+    const pts = Math.floor((it.total) / POINTS_PER_VALUE);
+    totalPoints += pts;
+    return { ...it, points: pts };
+  });
+
+  // show on receipt (do not save yet until payment)
+  document.getElementById('loyalty-code').textContent = loyaltyCode;
+  document.getElementById('loyalty-points').textContent = totalPoints;
+  document.getElementById('payment-section').classList.remove('hidden');
+
+  // store temporary values on window so payWith can use them
+  window._pendingSale = {
+    items: itemsWithPoints,
+    loyaltyCode,
+    totalPoints,
+    customerMobile: mobile
+  };
+}
+
+function payWith(method){
+  if(!window._pendingSale) return alert('Please Checkout first');
+  // finalize sale
+  const pending = window._pendingSale;
+  let grand = 0;
+  // Deduct stock and build sale details
+  pending.items.forEach(it => {
+    const p = inventoryData.find(x=>x.id===it.productId);
+    if(!p) return;
+    if(it.quantity > p.quantity) {
+      alert(`Not enough stock for ${p.name}. Payment cancelled.`);
+      return;
+    }
+  });
+
+  // if any mismatch, abort
+  for(const it of pending.items){
+    const p = inventoryData.find(x=>x.id===it.productId);
+    if(!p || it.quantity > p.quantity) return;
+  }
+
+  // Deduct and sum
+  pending.items.forEach(it=>{
+    const p = inventoryData.find(x=>x.id===it.productId);
+    p.quantity -= it.quantity;
+    grand += it.total;
+  });
+
+  // Save sale record
+  const saleRecord = {
+    id: generateId('sale'),
+    items: pending.items,
+    total: grand,
+    paid: true,
+    customerMobile: pending.customerMobile,
+    loyaltyCode: pending.loyaltyCode,
+    pointsEarned: pending.totalPoints,
+    timestamp: Date.now(),
+    paymentMethod: method
+  };
+  salesData.unshift(saleRecord);
+
+  // Update customer's cumulative points
+  const mob = pending.customerMobile;
+  customers[mob] = customers[mob] || { points: 0 };
+  customers[mob].points += pending.totalPoints;
+
+  // persist & refresh UI
+  saveAll();
+  renderProducts();
+  renderSales();
+  updateBillingUI();
+
+  // update receipt visual
+  document.getElementById('bill-status').textContent = 'PAID';
+  document.getElementById('bill-status').className = 'text-sm font-semibold text-green-600';
+  document.getElementById('payment-section').classList.add('hidden');
+  document.getElementById('new-bill-btn').classList.remove('hidden');
+
+  alert(`Payment successful (${method}). Loyalty code: ${pending.loyaltyCode} • Points earned: ${pending.totalPoints}`);
+
+  // keep receipt visible; new bill when ready
+  // clear pending sale and cart (but keep receipt shown)
+  billItems = []; // cart emptied because sale completed
+  window._pendingSale = null;
+  // update receipt totals to show paid total
+  document.getElementById('bill-total').textContent = money(grand);
+}
+
+function startNewBill(){
+  billItems = [];
+  document.getElementById('bill-receipt').classList.add('hidden');
+  document.getElementById('new-bill-btn').classList.add('hidden');
+  document.getElementById('customer-mobile').value = '';
+  renderBill();
+}
+
+/* ---------- Suppliers ---------- */
+document.getElementById('add-supplier-form').addEventListener('submit', function(e){
+  e.preventDefault();
+  const name = document.getElementById('supplier-name').value.trim();
+  const mobile = document.getElementById('supplier-mobile').value.trim();
+  const category = document.getElementById('supplier-category').value;
+  if(!name) return alert('Supplier name required');
+  supplierData.push({ id: generateId('sup'), name, mobile: mobile || null, category });
+  saveAll();
+  renderSuppliers();
+  this.reset();
+});
+
+function renderSuppliers(){
+  const list = document.getElementById('suppliers-list'); list.innerHTML = '';
+  if(supplierData.length === 0){
+    list.innerHTML = '<div class="p-6 bg-white rounded-xl card-shadow text-center text-gray-500">No suppliers yet.</div>';
+    return;
+  }
+  supplierData.forEach((s,i) => {
+    const d = document.createElement('div');
+    d.className = 'bg-white p-3 rounded-xl card-shadow flex justify-between items-center';
+    d.innerHTML = `<div><div class="font-semibold">${s.name}</div><div class="text-sm text-gray-600">${s.mobile||'—'}</div><div class="text-xs text-gray-500 mt-1">Category: ${s.category}</div></div>`;
+    const rem = document.createElement('button');
+    rem.className = 'bg-red-500 text-white px-3 py-1 rounded-md';
+    rem.textContent = 'Delete';
+    rem.onclick = ()=> { if(confirm('Delete supplier?')) { supplierData.splice(i,1); saveAll(); renderSuppliers(); } };
+    d.appendChild(rem);
+    list.appendChild(d);
+  });
+}
+function clearSupplierForm(){ document.getElementById('add-supplier-form').reset(); }
+
+/* ---------- Sales render & trending ---------- */
+function renderSales(){
+  const list = document.getElementById('sales-list'); list.innerHTML = '';
+  if(salesData.length === 0){
+    list.innerHTML = '<div class="p-6 bg-white rounded-xl card-shadow text-center text-gray-500">No sales yet.</div>';
+    return;
+  }
+  salesData.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'bg-white p-4 rounded-xl card-shadow flex justify-between items-start';
+    const leftHtml = `<div><div class="font-semibold">${s.items.map(it=>it.name+' x '+it.quantity).join(', ')}</div>
+      <div class="text-sm text-gray-600">Qty: ${s.items.reduce((a,b)=>a+b.quantity,0)} • ${s.customerMobile ? 'Customer: '+s.customerMobile+' • ' : ''}${s.paid ? '<span class="text-green-600 font-semibold">PAID</span>' : '<span class="text-yellow-600 font-semibold">PENDING</span>'}</div>
+      <div class="text-xs text-gray-400 mt-1">${new Date(s.timestamp).toLocaleString()}</div>
+      <div class="text-xs text-gray-600 mt-1">Loyalty: ${s.loyaltyCode || '—'} • Points: ${s.pointsEarned || 0}</div></div>`;
+    d.innerHTML = `<div>${leftHtml}</div><div class="text-right"><div class="font-bold">${money(s.total)}</div></div>`;
+    list.appendChild(d);
+  });
+}
+
+let trendingChart = null;
+function updateTrendingChart(){
+  const totals = {};
+  salesData.forEach(s => {
+    s.items.forEach(it => {
+      totals[it.name] = (totals[it.name] || 0) + it.quantity;
+    });
+  });
+  const labels = Object.keys(totals);
+  const data = Object.values(totals);
+  const ctx = document.getElementById('trendingChart').getContext('2d');
+  if(trendingChart) trendingChart.destroy();
+  trendingChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: ['#3b82f6','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4'] }] },
+    options: { responsive:true, plugins:{legend:{position:'bottom'}} }
+  });
+
+  const listDiv = document.getElementById('trending-list'); listDiv.innerHTML = '';
+  const totalQty = data.reduce((s,a)=>s+a,0) || 1;
+  const sorted = labels.map((l,i)=>({name:l,qty:data[i]})).sort((a,b)=>b.qty - a.qty);
+  sorted.forEach((it,index)=>{
+    const percent = ((it.qty/totalQty)*100).toFixed(0);
+    const row = document.createElement('div');
+    row.className='flex items-center gap-3';
+    row.innerHTML = `<div class="round-rank">${index+1}</div>
+      <div class="flex-1"><div class="font-semibold">${it.name||'—'}</div><div class="text-xs text-gray-500">${it.qty} sold • ${percent}%</div></div>
+      <div class="text-sm font-semibold">${percent}%</div>`;
+    listDiv.appendChild(row);
+  });
+  if(sorted.length===0) listDiv.innerHTML = '<div class="text-gray-500 text-sm">No trending data yet.</div>';
+}
+
+/* ---------- Add Product Modal & logic (GST live calc) ---------- */
+document.getElementById('show-add-product-btn').addEventListener('click', openAddProductModal);
+
+function openAddProductModal(){
+  const modal = document.getElementById('add-product-modal');
+  modal.innerHTML = `
+    <div id="add-product-dialog" class="bg-white rounded-xl w-full max-w-md p-6 card-shadow relative">
+      <button id="close-add-product" class="absolute right-3 top-3 text-gray-500 hover:text-gray-700"><i class="fas fa-times"></i></button>
+      <h3 class="text-lg font-bold mb-3">Add Product</h3>
+      <form id="add-product-form">
+        <div class="mb-2"><label class="block text-sm font-medium mb-1">Product Name</label><input id="product-name" class="w-full p-2 border rounded-md" required /></div>
+        <div class="mb-2"><label class="block text-sm font-medium mb-1">Category</label>
+            <select id="product-category" class="w-full p-2 border rounded-md"><option>Food</option><option>Brushes & Toothpaste</option><option>Electronics</option></select></div>
+        <div class="grid grid-cols-2 gap-3 mb-2">
+          <div><label class="block text-sm font-medium mb-1">Quantity</label><input id="product-quantity" type="number" min="1" value="1" class="w-full p-2 border rounded-md" /></div>
+          <div><label class="block text-sm font-medium mb-1">Price / unit (₹)</label><input id="product-price" type="number" min="0" step="0.01" value="0" class="w-full p-2 border rounded-md" /></div>
+        </div>
+        <div class="mb-2"><label class="block text-sm font-medium mb-1">GST (%)</label><input id="product-gst" type="number" min="0" step="0.01" value="0" class="w-full p-2 border rounded-md" /></div>
+        <div class="mb-2 text-sm text-gray-600">Final Price per unit (incl. GST): <span id="add-product-final-price" class="font-semibold">₹0.00</span></div>
+        <div class="mb-2"><label class="block text-sm font-medium mb-1">Description</label><textarea id="product-description" rows="2" class="w-full p-2 border rounded-md" placeholder="Short description (optional)"></textarea></div>
+        <div class="mb-4"><label class="block text-sm font-medium mb-1">Product Photo (optional)</label><input id="product-image" type="file" accept="image/*" class="w-full" /></div>
+        <div class="flex gap-3"><button type="submit" class="w-full bg-green-600 text-white py-2 rounded-md">Save Product</button><button type="button" id="cancel-add-product" class="w-1/3 bg-gray-200 py-2 rounded-md">Cancel</button></div>
+      </form>
+    </div>
+  `;
+  modal.classList.remove('hidden');
+
+  // events
+  const priceEl = document.getElementById('product-price');
+  const gstEl = document.getElementById('product-gst');
+  const finalSpan = document.getElementById('add-product-final-price');
+
+  function updateFinal(){
+    const p = parseFloat(priceEl.value) || 0;
+    const g = parseFloat(gstEl.value) || 0;
+    const f = p * (1 + g/100);
+    finalSpan.textContent = money(f);
+  }
+  priceEl.addEventListener('input', updateFinal);
+  gstEl.addEventListener('input', updateFinal);
+  updateFinal();
+
+  document.getElementById('close-add-product').onclick = ()=> closeModal('add-product-modal');
+  document.getElementById('cancel-add-product').onclick = ()=> closeModal('add-product-modal');
+
+  // click outside to close
+  modal.onclick = function(e){
+    if(e.target === modal) closeModal('add-product-modal');
+  };
+
+  // submit
+  document.getElementById('add-product-form').onsubmit = function(e){
+    e.preventDefault();
+    const name = document.getElementById('product-name').value.trim();
+    const qty = parseInt(document.getElementById('product-quantity').value) || 0;
+    const price = parseFloat(document.getElementById('product-price').value) || 0;
+    const gst = parseFloat(document.getElementById('product-gst').value) || 0;
+    const category = document.getElementById('product-category').value;
+    const desc = document.getElementById('product-description').value.trim();
+    const file = document.getElementById('product-image').files[0];
+
+    if(!name || qty < 0) return alert('Enter valid name and quantity');
+
+    const saveProduct = (photoDataUrl=null)=>{
+      const prod = {
+        id: generateId('prod'),
+        name, category, quantity: qty, price, gst, description: desc, photo: photoDataUrl
+      };
+      inventoryData.push(prod);
+      saveAll(); renderProducts(); updateBillingUI();
+      closeModal('add-product-modal');
+    };
+
+    if(file){
+      const reader = new FileReader();
+      reader.onload = function(evt){
+        saveProduct(evt.target.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      saveProduct(null);
+    }
+  };
+}
+
+function closeModal(id){
+  document.getElementById(id).classList.add('hidden');
+}
+
+/* ---------- Init ---------- */
+function init(){
+  loadAll();
+  renderProducts();
+  renderSales();
+  renderSuppliers();
+  updateBillingUI();
+  updateTrendingChart();
+  showTab('inventory');
+}
+init();
+
+/* Expose for inline onclicks (if needed) */
+window.showTab = showTab;
+window.openAddProductModal = openAddProductModal;
+window.closeModal = closeModal;
+window.addToBill = addToBill;
+window.checkoutBill = checkoutBill;
+window.payWith = payWith;
+window.clearBill = clearBill;
+window.startNewBill = startNewBill;
+window.openUpdateStock = openUpdateStock;
+window.deleteProductById = deleteProductById;
+window.renderProducts = renderProducts;
+window.renderSales = renderSales;
+window.renderSuppliers = renderSuppliers;
+window.updateTrendingChart = updateTrendingChart;
+</script>
+</body>
+</html>
